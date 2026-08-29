@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from openai import AsyncOpenAI
 from pypdf import PdfReader
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -114,4 +113,3 @@ SOURCES:
 """
     response = await AsyncOpenAI(api_key=settings.openai_api_key).chat.completions.create(model=settings.openai_chat_model, temperature=0.1, messages=[{"role": "user", "content": prompt}])
     return response.choices[0].message.content or "No answer was generated."
-

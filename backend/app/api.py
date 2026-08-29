@@ -1,6 +1,5 @@
 import hashlib
 import uuid
-from datetime import timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
@@ -11,7 +10,7 @@ from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import AuditEvent, Document, Generation, User
 from app.schemas import AuditEventOut, DocumentOut, GenerateRequest, GenerateResponse, RefreshRequest, TokenPair, UserCreate, UserOut
-from app.security import create_token, current_user, decode_token, hash_password, token_pair, verify_password
+from app.security import current_user, decode_token, hash_password, token_pair, verify_password
 from app.services.audit import record_audit
 from app.services.rag import PROMPT_VERSION, generate_answer, ingest, retrieve
 
@@ -121,4 +120,3 @@ async def generate(payload: GenerateRequest, user: User = Depends(current_user),
 @router.get("/audit", response_model=list[AuditEventOut])
 async def audit_log(user: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
     return list((await db.scalars(select(AuditEvent).where(AuditEvent.actor_id == user.id).order_by(desc(AuditEvent.created_at)).limit(100))).all())
-
