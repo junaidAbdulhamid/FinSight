@@ -155,6 +155,8 @@ activemq-data/
 .DS_Store
 node_modules/
 frontend/dist/
+*.tsbuildinfo
+/preview-dashboard.png
 .venv
 env/
 venv/
