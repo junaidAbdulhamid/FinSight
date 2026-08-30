@@ -2,52 +2,18 @@ import hashlib
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import SessionLocal, get_db
 from app.models import AuditEvent, Document, Generation, User
-from app.schemas import AuditEventOut, DocumentOut, GenerateRequest, GenerateResponse, RefreshRequest, TokenPair, UserCreate, UserOut
-from app.security import current_user, decode_token, hash_password, token_pair, verify_password
+from app.schemas import AuditEventOut, DocumentOut, GenerateRequest, GenerateResponse, UserOut
+from app.security import current_user
 from app.services.audit import record_audit
 from app.services.rag import PROMPT_VERSION, generate_answer, ingest, retrieve
 
 router = APIRouter(prefix="/api")
-
-
-@router.post("/auth/register", response_model=UserOut, status_code=201)
-async def register(payload: UserCreate, request: Request, db: AsyncSession = Depends(get_db)):
-    if await db.scalar(select(User.id).where(User.email == payload.email.lower())):
-        raise HTTPException(409, "An account with this email already exists")
-    user = User(email=payload.email.lower(), name=payload.name.strip(), password_hash=hash_password(payload.password))
-    db.add(user)
-    await db.flush()
-    record_audit(db, "user.registered", "user", user.id, str(user.id), ip_address=request.client.host if request.client else None)
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-@router.post("/auth/login", response_model=TokenPair)
-async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
-    user = await db.scalar(select(User).where(User.email == form.username.lower()))
-    if not user or not verify_password(form.password, user.password_hash):
-        raise HTTPException(401, "Incorrect email or password")
-    access, refresh = token_pair(user.id)
-    record_audit(db, "user.login", "user", user.id, str(user.id))
-    await db.commit()
-    return TokenPair(access_token=access, refresh_token=refresh)
-
-
-@router.post("/auth/refresh", response_model=TokenPair)
-async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
-    user_id = decode_token(payload.refresh_token, "refresh")
-    if not await db.scalar(select(User.id).where(User.id == user_id)):
-        raise HTTPException(401, "User no longer exists")
-    access, refresh_token = token_pair(user_id)
-    return TokenPair(access_token=access, refresh_token=refresh_token)
 
 
 @router.get("/auth/me", response_model=UserOut)

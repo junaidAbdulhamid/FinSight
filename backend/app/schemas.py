@@ -7,28 +7,12 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.models import DocumentStatus, Role
 
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    name: str = Field(min_length=2, max_length=120)
-    password: str = Field(min_length=12, max_length=128)
-
-
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     email: EmailStr
     name: str
     role: Role
-
-
-class TokenPair(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
 
 
 class DocumentOut(BaseModel):
@@ -74,4 +58,3 @@ class AuditEventOut(BaseModel):
     resource_id: str | None
     detail: dict
     created_at: datetime
-
