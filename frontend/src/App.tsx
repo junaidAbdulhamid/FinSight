@@ -9,6 +9,15 @@ const modes = [
   {id: "question", label: "Ask sources", icon: Search, hint: "Explore the indexed knowledge base"}
 ];
 
+const previewMode = import.meta.env.VITE_PREVIEW_MODE === "true";
+const previewUser: User = {id: "preview", name: "Junaid Abdulhamid", email: "junaid@example.com", role: "Analyst"};
+const previewDocuments: Document[] = [
+  {id: "1", filename: "Q2 Portfolio Review.pdf", content_type: "application/pdf", status: "ready", page_count: 84, error: null, metadata_: {}, created_at: "2026-08-29T15:00:00Z"},
+  {id: "2", filename: "Investment Policy Statement.pdf", content_type: "application/pdf", status: "ready", page_count: 26, error: null, metadata_: {}, created_at: "2026-08-27T15:00:00Z"},
+  {id: "3", filename: "Global Markets Outlook.pdf", content_type: "application/pdf", status: "ready", page_count: 48, error: null, metadata_: {}, created_at: "2026-08-25T15:00:00Z"},
+  {id: "4", filename: "Alternatives Exposure.csv", content_type: "text/csv", status: "processing", page_count: 12, error: null, metadata_: {}, created_at: "2026-08-30T12:00:00Z"}
+];
+
 function Auth({onReady}: {onReady: (user: User) => void}) {
   const [registering, setRegistering] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(""); const data = new FormData(event.currentTarget); try { if (registering) await api.register(String(data.get("name")), String(data.get("email")), String(data.get("password"))); await api.login(String(data.get("email")), String(data.get("password"))); onReady(await api.me()); } catch (e) { setError(e instanceof Error ? e.message : "Unable to continue"); } finally { setBusy(false); } }
@@ -16,7 +25,7 @@ function Auth({onReady}: {onReady: (user: User) => void}) {
 }
 
 function App() {
-  const [user, setUser] = useState<User | null>(null); const [loading, setLoading] = useState(Boolean(session.token));
+  const [user, setUser] = useState<User | null>(previewMode ? previewUser : null); const [loading, setLoading] = useState(!previewMode && Boolean(session.token));
   useEffect(() => { if (session.token) api.me().then(setUser).catch(() => session.clear()).finally(() => setLoading(false)); }, []);
   if (loading) return <div className="loading"><Activity className="spin" />Loading workspace</div>;
   if (!user) return <Auth onReady={setUser} />;
@@ -24,9 +33,9 @@ function App() {
 }
 
 function Workspace({user, onLogout}: {user: User; onLogout: () => void}) {
-  const [documents, setDocuments] = useState<Document[]>([]); const [selected, setSelected] = useState<string[]>([]); const [mode, setMode] = useState("portfolio_summary"); const [query, setQuery] = useState(""); const [result, setResult] = useState<Result | null>(null); const [audit, setAudit] = useState<AuditEvent[]>([]); const [tab, setTab] = useState<"dashboard" | "studio" | "documents" | "audit">("dashboard"); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [mobile, setMobile] = useState(false);
-  const load = () => api.documents().then(setDocuments).catch(e => setError(e.message));
-  useEffect(load, []); useEffect(() => { const pending = documents.some(d => d.status === "processing"); if (!pending) return; const timer = window.setInterval(load, 2500); return () => clearInterval(timer); }, [documents]);
+  const [documents, setDocuments] = useState<Document[]>(previewMode ? previewDocuments : []); const [selected, setSelected] = useState<string[]>([]); const [mode, setMode] = useState("portfolio_summary"); const [query, setQuery] = useState(""); const [result, setResult] = useState<Result | null>(null); const [audit, setAudit] = useState<AuditEvent[]>([]); const [tab, setTab] = useState<"dashboard" | "studio" | "documents" | "audit">("dashboard"); const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [mobile, setMobile] = useState(false);
+  const load = () => previewMode ? Promise.resolve() : api.documents().then(setDocuments).catch(e => setError(e.message));
+  useEffect(() => { void load(); }, []); useEffect(() => { const pending = documents.some(d => d.status === "processing"); if (!pending || previewMode) return; const timer = window.setInterval(load, 2500); return () => clearInterval(timer); }, [documents]);
   async function upload(file?: File) { if (!file) return; setBusy(true); setError(""); try { await api.upload(file, ""); await load(); setTab("documents"); } catch (e) { setError(e instanceof Error ? e.message : "Upload failed"); } finally {setBusy(false);} }
   async function generate() { if (!query.trim()) return; setBusy(true); setError(""); try { setResult(await api.generate(query, mode, selected)); } catch (e) {setError(e instanceof Error ? e.message : "Generation failed");} finally {setBusy(false);} }
   async function openAudit() { setTab("audit"); setAudit(await api.audit()); }
