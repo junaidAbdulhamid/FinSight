@@ -22,9 +22,10 @@ Requirements: Docker Engine with Compose v2.
 
 1. Create a Supabase project and open **Authentication → URL Configuration**. Set the Site URL to `http://localhost:5173` for local development and add the same address to Redirect URLs. Add each deployed HTTPS origin before production rollout.
 2. Under **Authentication → Providers → Email**, enable email/password authentication. Keep **Confirm email** enabled for production; users will see a dedicated confirmation state after registration.
-3. Under **Project Settings → API Keys**, create or copy a `sb_publishable_...` key. FinSight intentionally uses the publishable browser key; never provide a secret or `service_role` key.
-4. Under **Authentication → Signing Keys**, migrate to and rotate onto an asymmetric RS256 or ES256 signing key. Allow at least 20 minutes for JWKS caches to observe a standby key before rotation.
-5. Copy the example configuration and supply the project URL and the same publishable key to both the browser and API variables:
+3. To offer the guest workspace, open **Authentication → Providers → Anonymous Sign-Ins** and enable anonymous authentication. Guest users receive real isolated Supabase identities and can later be linked to a permanent identity if an upgrade flow is added.
+4. Under **Project Settings → API Keys**, create or copy a `sb_publishable_...` key. FinSight intentionally uses the publishable browser key; never provide a secret or `service_role` key.
+5. Under **Authentication → Signing Keys**, migrate to and rotate onto an asymmetric RS256 or ES256 signing key. Allow at least 20 minutes for JWKS caches to observe a standby key before rotation.
+6. Copy the example configuration and supply the project URL and the same publishable key to both the browser and API variables:
 
 ```bash
 cp .env.example .env
@@ -35,6 +36,16 @@ docker compose up --build
 ```
 
 See Supabase's official [password authentication](https://supabase.com/docs/guides/auth/passwords), [redirect URL](https://supabase.com/docs/guides/auth/redirect-urls), and [JWT signing key](https://supabase.com/docs/guides/auth/signing-keys) guidance when configuring non-local environments.
+
+### Guest-access safeguards
+
+Anonymous sign-ins are convenient but can be abused to create large numbers of identities and upload data. For any public deployment:
+
+- Enable CAPTCHA protection for anonymous sign-ins and keep Supabase Auth rate limits conservative.
+- Apply API-gateway or load-balancer rate limits to uploads and generation requests in addition to Supabase's authentication limits.
+- Set explicit storage, document-count, and generation quotas for guest UUIDs before inviting public traffic.
+- Schedule retention cleanup for inactive anonymous profiles, their documents, chunks, generations, and audit records according to your privacy policy.
+- Make the temporary nature of guest data clear. Do not promise recovery after local sign-out unless an identity-linking upgrade flow has been implemented and tested.
 
 Open [http://localhost:5173](http://localhost:5173). API documentation is at [http://localhost:8000/docs](http://localhost:8000/docs) in development. Without an OpenAI key, FinSight uses deterministic local embeddings and returns retrieved passages, so the ingestion and retrieval loop remains usable offline.
 
