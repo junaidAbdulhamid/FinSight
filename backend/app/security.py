@@ -94,12 +94,17 @@ class SupabaseTokenVerifier:
                 raise JWTError("Unsupported signing algorithm")
             if claims.get("role") != "authenticated":
                 raise JWTError("Not an authenticated user session")
+            subject = uuid.UUID(claims["sub"])
             email = claims.get("email")
-            if not isinstance(email, str) or not email:
-                raise JWTError("Email claim is missing")
-            metadata = claims.get("user_metadata") or {}
-            name = metadata.get("full_name") or metadata.get("name") or email.split("@", 1)[0]
-            return SupabaseIdentity(uuid.UUID(claims["sub"]), email.lower(), str(name)[:120], claims)
+            if claims.get("is_anonymous") is True:
+                email = f"guest-{subject}@anonymous.finsight.local"
+                name = "Guest analyst"
+            else:
+                if not isinstance(email, str) or not email:
+                    raise JWTError("Email claim is missing")
+                metadata = claims.get("user_metadata") or {}
+                name = metadata.get("full_name") or metadata.get("name") or email.split("@", 1)[0]
+            return SupabaseIdentity(subject, email.lower(), str(name)[:120], claims)
         except (JWTError, ValueError, KeyError, httpx.HTTPError) as exc:
             raise HTTPException(status_code=401, detail="Invalid or expired session") from exc
 

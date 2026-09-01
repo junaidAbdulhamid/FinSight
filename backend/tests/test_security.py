@@ -31,6 +31,33 @@ async def test_verifier_accepts_authenticated_claims(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_verifier_accepts_explicit_anonymous_identity(monkeypatch):
+    subject = uuid.uuid4()
+    verifier = SupabaseTokenVerifier()
+    monkeypatch.setattr("app.security.jwt.get_unverified_header", lambda _: {"alg": "ES256", "kid": "active"})
+    verifier._verify_asymmetric = AsyncMock(return_value={
+        "sub": str(subject), "role": "authenticated", "is_anonymous": True,
+        "aud": "authenticated", "iss": verifier.issuer, "exp": 4_000_000_000,
+    })
+    identity = await verifier.verify("header.payload.signature")
+    assert identity.email == f"guest-{subject}@anonymous.finsight.local"
+    assert identity.name == "Guest analyst"
+
+
+@pytest.mark.asyncio
+async def test_verifier_rejects_missing_email_when_not_anonymous(monkeypatch):
+    verifier = SupabaseTokenVerifier()
+    monkeypatch.setattr("app.security.jwt.get_unverified_header", lambda _: {"alg": "RS256", "kid": "active"})
+    verifier._verify_asymmetric = AsyncMock(return_value={
+        "sub": str(uuid.uuid4()), "role": "authenticated", "is_anonymous": False,
+        "aud": "authenticated", "iss": verifier.issuer, "exp": 4_000_000_000,
+    })
+    with pytest.raises(HTTPException) as caught:
+        await verifier.verify("header.payload.signature")
+    assert caught.value.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_verifier_rejects_wrong_role(monkeypatch):
     verifier = SupabaseTokenVerifier()
     monkeypatch.setattr("app.security.jwt.get_unverified_header", lambda _: {"alg": "RS256", "kid": "active"})
